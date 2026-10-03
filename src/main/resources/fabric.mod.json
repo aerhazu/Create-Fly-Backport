@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "create",
+  "version": "${version}",
+  "name": "Create Fly Backport",
+  "description": "Creators-of-Create/Create backporting to fabric 1.21.1",
+  "authors": [
+    "ZurrTum (Create Fly)",
+    "Claude AI (AI Backporter)",
+    "Aerhazu (Claude Subscriber)"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Aerhazu/Create-Fly-Backport",
+    "sources": "https://github.com/ZurrTum/Create-Fly"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/pack.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.zurrtum.create.Create"
+    ],
+    "client": [
+      "com.zurrtum.create.client.Create"
+    ],
+    "rei_client": [
+      "com.zurrtum.create.client.compat.rei.ReiClientPlugin"
+    ],
+    "rei_common": [
+      "com.zurrtum.create.compat.rei.ReiCommonPlugin"
+    ],
+    "create_plugin": [
+      "com.zurrtum.create.AllEarlyRegistries"
+    ]
+  },
+  "custom": {
+    "loom:injected_interfaces": {
+      "net/minecraft/class_1263": [
+        "com/zurrtum/create/infrastructure/items/BaseInventory"
+      ],
+      "net/minecraft/class_1278": [
+        "com/zurrtum/create/infrastructure/items/BaseSidedInventory"
+      ],
+      "net/minecraft/class_2487": [
+        "com/zurrtum/create/foundation/storage/NbtCompoundExtensions"
+      ],
+      "net/minecraft/class_2499": [
+        "com/zurrtum/create/foundation/storage/NbtListExtensions"
+      ],
+      "net/minecraft/class_2688": [
+        "com/zurrtum/create/foundation/storage/StateExtensions"
+      ],
+      "net/minecraft/class_1937": [
+        "com/zurrtum/create/foundation/storage/WorldExtensions"
+      ]
+    }
+  },
+  "accessWidener": "create.accesswidener",
+  "mixins": [
+    "create.mixins.json",
+    {
+      "config": "create.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.17.2",
+    "minecraft": ">=1.21.1- <1.21.2-",
+    "java": ">=21"
+  }
+}
