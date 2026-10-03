@@ -1,0 +1,128 @@
+package com.zurrtum.create.content.kinetics.mixer;
+
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.mojang.serialization.codecs.RecordCodecBuilder.Instance;
+import com.zurrtum.create.AllRecipeSerializers;
+import com.zurrtum.create.AllRecipeTypes;
+import com.zurrtum.create.content.processing.basin.BasinInput;
+import com.zurrtum.create.content.processing.basin.BasinRecipe;
+import com.zurrtum.create.content.processing.recipe.HeatCondition;
+import com.zurrtum.create.content.processing.recipe.ProcessingOutput;
+import com.zurrtum.create.content.processing.recipe.SizedIngredient;
+import com.zurrtum.create.foundation.blockEntity.behaviour.filtering.ServerFilteringBehaviour;
+import com.zurrtum.create.foundation.fluid.FluidIngredient;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.recipe.RecipeSerializer;
+import net.minecraft.recipe.RecipeType;
+import net.minecraft.world.World;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+
+public record CompactingRecipe(
+    List<ProcessingOutput> results, HeatCondition heat, List<FluidIngredient> fluidIngredients,
+    List<SizedIngredient> ingredients
+) implements BasinRecipe {
+    @Override
+    public int getIngredientSize() {
+        return fluidIngredients.size() + ingredients.size();
+    }
+
+    @Override
+    public boolean matches(BasinInput input, World world) {
+        if (!heat.testBlazeBurner(input.heat())) {
+            return false;
+        }
+        ServerFilteringBehaviour filter = input.filter();
+        if (filter == null) {
+            return false;
+        }
+        if (!filter.test(results.getFirst().create())) {
+            return false;
+        }
+        List<ItemStack> outputs = BasinRecipe.tryCraft(input, ingredients);
+        if (outputs == null) {
+            return false;
+        }
+        if (!BasinRecipe.matchFluidIngredient(input, fluidIngredients)) {
+            return false;
+        }
+        ProcessingOutput.rollOutput(input.random(), results, outputs::add);
+        return input.acceptOutputs(outputs, List.of(), true);
+    }
+
+    @Override
+    public boolean apply(BasinInput input) {
+        if (!heat.testBlazeBurner(input.heat())) {
+            return false;
+        }
+        Deque<Runnable> changes = new ArrayDeque<>();
+        List<ItemStack> outputs = BasinRecipe.prepareCraft(input, ingredients, changes);
+        if (outputs == null) {
+            return false;
+        }
+        if (!BasinRecipe.prepareFluidCraft(input, fluidIngredients, changes)) {
+            return false;
+        }
+        ProcessingOutput.rollOutput(input.random(), results, outputs::add);
+        if (!input.acceptOutputs(outputs, List.of(), true)) {
+            return false;
+        }
+        changes.forEach(Runnable::run);
+        return input.acceptOutputs(outputs, List.of(), false);
+    }
+
+    @Override
+    public RecipeSerializer<CompactingRecipe> getSerializer() {
+        return AllRecipeSerializers.COMPACTING;
+    }
+
+    @Override
+    public RecipeType<CompactingRecipe> getType() {
+        return AllRecipeTypes.COMPACTING;
+    }
+
+    public static class Serializer implements RecipeSerializer<CompactingRecipe> {
+        public static final MapCodec<CompactingRecipe> CODEC = RecordCodecBuilder.mapCodec((Instance<CompactingRecipe> instance) -> instance.group(
+            ProcessingOutput.CODEC.listOf(1, 4).fieldOf("results").forGetter(CompactingRecipe::results),
+            HeatCondition.CODEC.optionalFieldOf("heat_requirement", HeatCondition.NONE).forGetter(CompactingRecipe::heat),
+            FluidIngredient.CODEC.listOf(1, 2).optionalFieldOf("fluid_ingredients", List.of()).forGetter(CompactingRecipe::fluidIngredients),
+            SizedIngredient.LIST_CODEC.optionalFieldOf("ingredients", List.of()).forGetter(CompactingRecipe::ingredients)
+        ).apply(instance, CompactingRecipe::new)).validate(recipe -> {
+            if (recipe.fluidIngredients.isEmpty() && recipe.ingredients.isEmpty()) {
+                return DataResult.error(() -> "CompactingRecipe must have a ingredient or a fluid ingredient");
+            }
+            if (recipe.ingredients.size() > 9) {
+                return DataResult.error(() -> "Ingredients type is too many: " + recipe.ingredients.size() + ", expected range [0-9]");
+            }
+            return DataResult.success(recipe);
+        });
+        public static final PacketCodec<RegistryByteBuf, CompactingRecipe> PACKET_CODEC = PacketCodec.tuple(
+            ProcessingOutput.STREAM_CODEC.collect(PacketCodecs.toList()),
+            CompactingRecipe::results,
+            HeatCondition.PACKET_CODEC,
+            CompactingRecipe::heat,
+            FluidIngredient.PACKET_CODEC.collect(PacketCodecs.toList()),
+            CompactingRecipe::fluidIngredients,
+            SizedIngredient.PACKET_CODEC.collect(PacketCodecs.toList()),
+            CompactingRecipe::ingredients,
+            CompactingRecipe::new
+        );
+
+        @Override
+        public MapCodec<CompactingRecipe> codec() {
+            return CODEC;
+        }
+
+        @Override
+        public PacketCodec<RegistryByteBuf, CompactingRecipe> packetCodec() {
+            return PACKET_CODEC;
+        }
+    }
+}

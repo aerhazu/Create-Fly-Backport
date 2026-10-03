@@ -1,0 +1,50 @@
+package com.zurrtum.create.client.mixin;
+
+import com.llamalad7.mixinextras.sugar.Local;
+import com.zurrtum.create.client.Create;
+import com.zurrtum.create.client.catnip.animation.AnimationTickHolder;
+import com.zurrtum.create.client.catnip.levelWrappers.WrappedClientLevel;
+import com.zurrtum.create.client.content.contraptions.ContraptionHandlerClient;
+import com.zurrtum.create.client.flywheel.impl.visualization.VisualizationEventHandler;
+import com.zurrtum.create.client.ponder.Ponder;
+import com.zurrtum.create.content.contraptions.minecart.capability.CapabilityMinecartController;
+import com.zurrtum.create.content.equipment.armor.CardboardArmorHandler;
+import com.zurrtum.create.content.equipment.armor.DivingBootsItem;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.world.World;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import static com.zurrtum.create.Create.REDSTONE_LINK_NETWORK_HANDLER;
+
+@Mixin(ClientWorld.class)
+public class ClientWorldMixin {
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void onLoadWorld(CallbackInfo ci) {
+        ClientWorld level = (ClientWorld) (Object) this;
+        if (!(level instanceof WrappedClientLevel)) {
+            Create.invalidateRenderers();
+            AnimationTickHolder.reset();
+            Ponder.invalidateRenderers();
+        }
+        REDSTONE_LINK_NETWORK_HANDLER.onLoadWorld((World) (Object) this);
+    }
+
+    @Inject(method = "addEntity(Lnet/minecraft/entity/Entity;)V", at = @At("HEAD"))
+    private void addEntity(CallbackInfo ci, @Local(argsOnly = true) Entity entity) {
+        ClientWorld world = (ClientWorld) (Object) this;
+        VisualizationEventHandler.onEntityJoinLevel(world, entity);
+        ContraptionHandlerClient.addSpawnedContraptionsToCollisionList(entity, world);
+        CapabilityMinecartController.attach(entity);
+    }
+
+    @Inject(method = "tickEntity(Lnet/minecraft/entity/Entity;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;tick()V"))
+    private void tickEntity(Entity entity, CallbackInfo ci) {
+        CapabilityMinecartController.entityTick(entity);
+        DivingBootsItem.accelerateDescentUnderwater(entity);
+        CardboardArmorHandler.mobsMayLoseTargetWhenItIsWearingCardboard(entity);
+    }
+}

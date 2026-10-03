@@ -1,0 +1,32 @@
+package com.zurrtum.create.infrastructure.packet.c2s;
+
+import com.zurrtum.create.AllHandle;
+import com.zurrtum.create.AllPackets;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.listener.ServerPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.PacketType;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+
+public record GhostItemSubmitPacket(ItemStack item, int slot) implements Packet<ServerPlayPacketListener> {
+    public static final PacketCodec<RegistryByteBuf, GhostItemSubmitPacket> CODEC = PacketCodec.tuple(
+        ItemStack.OPTIONAL_PACKET_CODEC,
+        GhostItemSubmitPacket::item,
+        PacketCodecs.INTEGER,
+        GhostItemSubmitPacket::slot,
+        GhostItemSubmitPacket::new
+    );
+
+    @Override
+    public void apply(ServerPlayPacketListener listener) {
+        AllHandle.onGhostItemSubmit((ServerPlayNetworkHandler) listener, this);
+    }
+
+    @Override
+    public PacketType<GhostItemSubmitPacket> getPacketId() {
+        return AllPackets.SUBMIT_GHOST_ITEM;
+    }
+}

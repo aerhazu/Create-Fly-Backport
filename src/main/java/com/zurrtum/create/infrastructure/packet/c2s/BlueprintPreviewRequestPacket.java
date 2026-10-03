@@ -1,0 +1,33 @@
+package com.zurrtum.create.infrastructure.packet.c2s;
+
+import com.zurrtum.create.AllHandle;
+import com.zurrtum.create.AllPackets;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.listener.ServerPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.PacketType;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+
+public record BlueprintPreviewRequestPacket(int entityId, int index, boolean sneaking) implements Packet<ServerPlayPacketListener> {
+    public static final PacketCodec<RegistryByteBuf, BlueprintPreviewRequestPacket> CODEC = PacketCodec.tuple(
+        PacketCodecs.INTEGER,
+        BlueprintPreviewRequestPacket::entityId,
+        PacketCodecs.VAR_INT,
+        BlueprintPreviewRequestPacket::index,
+        PacketCodecs.BOOL,
+        BlueprintPreviewRequestPacket::sneaking,
+        BlueprintPreviewRequestPacket::new
+    );
+
+    @Override
+    public void apply(ServerPlayPacketListener listener) {
+        AllHandle.onBlueprintPreviewRequest((ServerPlayNetworkHandler) listener, this);
+    }
+
+    @Override
+    public PacketType<? extends BlueprintPreviewRequestPacket> getPacketId() {
+        return AllPackets.REQUEST_BLUEPRINT_PREVIEW;
+    }
+}

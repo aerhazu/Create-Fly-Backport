@@ -1,0 +1,95 @@
+package com.zurrtum.create.mixin;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.zurrtum.create.Create;
+import com.zurrtum.create.foundation.block.BlockEntityKeepBlock;
+import com.zurrtum.create.foundation.blockEntity.SmartBlockEntity;
+import com.zurrtum.create.foundation.blockEntity.SyncedBlockEntity;
+import com.zurrtum.create.foundation.fluid.FluidHelper;
+import com.zurrtum.create.foundation.item.ItemHelper;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.server.world.ServerWorld;
+import com.zurrtum.create.foundation.storage.ErrorReporter;
+import com.zurrtum.create.foundation.storage.NbtReadView;
+import com.zurrtum.create.foundation.storage.ReadView;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.chunk.WorldChunk;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Map;
+
+@Mixin(WorldChunk.class)
+public abstract class WorldChunkMixin {
+    @Shadow
+    public abstract World getWorld();
+
+    @Shadow
+    public abstract Map<BlockPos, BlockEntity> getBlockEntities();
+
+    @Inject(method = "setBlockEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/WorldChunk;getBlockState(Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/block/BlockState;"))
+    private void setBlockEntity(BlockEntity blockEntity, CallbackInfo info, @Local BlockPos pos) {
+        if (getWorld() instanceof ServerWorld) {
+            ItemHelper.invalidateInventoryCache(pos);
+            FluidHelper.invalidateInventoryCache(pos);
+        }
+    }
+
+    @WrapOperation(method = "getBlockEntity(Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/world/chunk/WorldChunk$CreationType;)Lnet/minecraft/block/entity/BlockEntity;", at = @At(value = "INVOKE", target = "Lnet/minecraft/block/entity/BlockEntity;isRemoved()Z"))
+    private boolean onRemoveBlockEntity(BlockEntity instance, Operation<Boolean> original, @Local(argsOnly = true) BlockPos pos) {
+        if (original.call(instance)) {
+            ItemHelper.invalidateInventoryCache(pos);
+            FluidHelper.invalidateInventoryCache(pos);
+            return true;
+        }
+        return false;
+    }
+
+    @Inject(method = "removeBlockEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/WorldChunk;removeGameEventListener(Lnet/minecraft/block/entity/BlockEntity;Lnet/minecraft/server/world/ServerWorld;)V"))
+    private void onRemoveBlockEntity(BlockPos pos, CallbackInfo ci) {
+        ItemHelper.invalidateInventoryCache(pos);
+        FluidHelper.invalidateInventoryCache(pos);
+    }
+
+    @WrapOperation(method = "method_31716(Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/entity/BlockEntityType;Lnet/minecraft/nbt/NbtCompound;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/block/entity/BlockEntity;read(Lnet/minecraft/nbt/NbtCompound;Lnet/minecraft/registry/RegistryWrapper$WrapperLookup;)V"))
+    private void handleUpdateTag(BlockEntity blockEntity, NbtCompound nbt, RegistryWrapper.WrapperLookup registries, Operation<Void> original) {
+        if (blockEntity instanceof SyncedBlockEntity syncedBlockEntity) {
+            try (ErrorReporter.Logging logging = new ErrorReporter.Logging(Create.LOGGER)) {
+                ReadView view = NbtReadView.create(logging, registries, nbt);
+                syncedBlockEntity.handleUpdateTag(view);
+            }
+        } else {
+            original.call(blockEntity, nbt, registries);
+        }
+    }
+
+    @Inject(method = "clear()V", at = @At("HEAD"))
+    private void clear(CallbackInfo ci) {
+        getBlockEntities().values().forEach(blockEntity -> {
+            if (blockEntity instanceof SmartBlockEntity sbe) {
+                sbe.onChunkUnloaded();
+            }
+        });
+    }
+
+    @WrapOperation(method = "setBlockState(Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/BlockState;Z)Lnet/minecraft/block/BlockState;", at = @At(value = "INVOKE", target = "Lnet/minecraft/block/BlockState;hasBlockEntity()Z", ordinal = 0))
+    private boolean replaceBlockEntity(BlockState state, Operation<Boolean> original, @Local(argsOnly = true) BlockState newState) {
+        if (original.call(state)) {
+            if (state.getBlock() instanceof BlockEntityKeepBlock block) {
+                return !block.keepBlockEntityWhenReplacedWith(newState);
+            }
+            return true;
+        }
+        return false;
+    }
+}

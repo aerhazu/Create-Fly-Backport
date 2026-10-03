@@ -1,0 +1,39 @@
+package com.zurrtum.create.infrastructure.packet.c2s;
+
+import com.zurrtum.create.AllHandle;
+import com.zurrtum.create.AllPackets;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.listener.ServerPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.PacketType;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+import net.minecraft.util.math.BlockPos;
+
+public record ChainConveyorConnectionPacket(
+    BlockPos pos, BlockPos targetPos, ItemStack chain, boolean connect
+) implements Packet<ServerPlayPacketListener> {
+    public static final PacketCodec<RegistryByteBuf, ChainConveyorConnectionPacket> CODEC = PacketCodec.tuple(
+        BlockPos.PACKET_CODEC,
+        ChainConveyorConnectionPacket::pos,
+        BlockPos.PACKET_CODEC,
+        ChainConveyorConnectionPacket::targetPos,
+        ItemStack.PACKET_CODEC,
+        ChainConveyorConnectionPacket::chain,
+        PacketCodecs.BOOL,
+        ChainConveyorConnectionPacket::connect,
+        ChainConveyorConnectionPacket::new
+    );
+
+    @Override
+    public void apply(ServerPlayPacketListener listener) {
+        AllHandle.onChainConveyorConnection((ServerPlayNetworkHandler) listener, this);
+    }
+
+    @Override
+    public PacketType<ChainConveyorConnectionPacket> getPacketId() {
+        return AllPackets.CHAIN_CONVEYOR_CONNECT;
+    }
+}
