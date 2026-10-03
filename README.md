@@ -3,7 +3,7 @@
 >
 > This project was developed predominantly, if not entirely, through the use of artificial intelligence, specifically Claude, in the backporting and adaptation of Create Fly to Minecraft 1.21.1.
 
-It is published on [Modrinth](https://modrinth.com/mod/create-fly-backport) for discovery and GitHub exclusively for educational, research, and archival purposes. The project generates no advertising revenue and provides no financial benefit to its author. No monetary compensation is received from its distribution. Given the substantial role of AI in producing this work, I do not consider it appropriate to derive financial gain from the project.
+It is published on GitHub exclusively for educational, research, and archival purposes. The project generates no advertising revenue and provides no financial benefit to its author. No monetary compensation is received from its distribution. Given the substantial role of AI in producing this work, I do not consider it appropriate to derive financial gain from the project.
 
 Full credit and attribution are given to the original creators and contributors of Create Fly and the Create project. This backport is an unofficial community project and is not affiliated with or endorsed by the original developers.
 
